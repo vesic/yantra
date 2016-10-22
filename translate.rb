@@ -1,7 +1,7 @@
 require "http"
 require "json"
-require 'colorize'
-require 'yaml'
+require "colorize"
+require "yaml"
 
 class Translate
   def initialize
@@ -9,25 +9,30 @@ class Translate
   
   def produce(input_file, output_file, to_lang)
     apiKey = YAML.load_file("config.yml")["apiKey"]
-    source_text = [];
+    source_text = []
     translated_text = []
-
+    totalCount = 0
+    totalStartTime = Time.now
+    
     File.open(input_file).each do |row|
       source_text << row.strip
     end
     
-    # split array into chunks 
+    
+    # split array in chunks 
     source_text.each_slice(100) do |chunk|
       # text = chunk.inject { |memo, word| memo << "&text=" << word }
+      
+      totalCount += chunk.length
       # from each chunk build a 100 '&text=<word-to-translate>' pairs
       text_params = ""
       chunk.each { |el| text_params << "&text=" << el }
-      # start measuring req
+      # start measuring req time
       startTime = Time.now
       response = HTTP.get("https://translate.yandex.net/api/v1.5/tr.json/translate?key=#{apiKey}#{text_params}&lang=#{to_lang}")
-      response = JSON.parse(response);
-      status_code = response["code"];
-      # check for error code
+      response = JSON.parse(response)
+      status_code = response["code"]
+      # check status code
       if status_code.equal? 200
         # extract translated words
         translated_response = response["text"]
@@ -37,10 +42,10 @@ class Translate
           # concatenate new array to translated words
           translated_text.concat(inner);
         end
-          # end measuring req
+          # end measuring req time
           endTime = Time.now
           # diag msg
-          # puts "Translated #{chunk.length.to_s.colorize(:red)} words in #{(endTime - startTime).round(2).to_s.colorize(:green)} seconds"
+          puts "Translated #{totalCount.to_s.colorize(:green)} words in #{(endTime - totalStartTime).round(2).to_s.colorize(:green)} seconds"
       else
         # if status code is something other than 200
         # print msg and abort
@@ -53,21 +58,21 @@ class Translate
       words_written = 0 # counter
       # sort and remove duplicates
       translated_text.uniq.sort.each do |word|
+        # TODO: check whether the solution is correct words like E-mail, ympyrä-aluevaltaus and such should not be removed
         # don't write if there is non-alpha chars contained in the word
         if word.index(/[^[:alnum:]]/).nil?
           file.puts word 
-        else 
-          # puts "#non-alpha: #{word}"
+          # puts "Line: #{words_written += 1} #{word.colorize(:green)}"
+        else
+          puts "#non-alpha: #{word}"
         end
-        # diag msg
-        puts "Line:#{words_written += 1} #{word.colorize(:yellow)}"
       end
     end
     
-    puts "Completed original:#{translated_text.length} final:#{translated_text.uniq.length}"    
+    puts "Done. Input count: #{translated_text.length.to_s.colorize(:green)}. Output (including invalids) count: #{translated_text.uniq.length.to_s.colorize(:green)}"    
   end
   
-  def merge_files files, output_file
+  def merge files, output_file
     # combine text from files array
     all = []
 
@@ -83,8 +88,10 @@ class Translate
       # once again sort and remove duplicates
       all.uniq.sort.each do |word|
         file.puts word
-        # puts "Line:#{counter += 1} #{word.colorize(:yellow)}"
+        # puts "Line: #{(counter += 1).to_s.colorize(:green)} #{word.colorize(:green)}"
       end
     end
+    
+    puts "File #{output_file} written"
   end
 end
