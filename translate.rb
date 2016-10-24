@@ -18,7 +18,6 @@ class Translate
       source_text << row.strip
     end
     
-    
     # split array in chunks 
     source_text.each_slice(100) do |chunk|
       # text = chunk.inject { |memo, word| memo << "&text=" << word }
@@ -45,7 +44,7 @@ class Translate
           # end measuring req time
           endTime = Time.now
           # diag msg
-          puts "Translated #{totalCount.to_s.colorize(:green)} words in #{(endTime - totalStartTime).round(2).to_s.colorize(:green)} seconds"
+          puts "Translated #{totalCount.to_s.colorize(:green)} words in #{format_seconds(endTime - totalStartTime)}"
       else
         # if status code is something other than 200
         # print msg and abort
@@ -53,16 +52,19 @@ class Translate
       end
     end
     
+    # diag msg in case we want to see dups
+    # p translated_text.count, translated_text.sort
+
     # if all's well print output file
     File.open(output_file, 'w') do |file|
       words_written = 0 # counter
       # sort and remove duplicates
       translated_text.uniq.sort.each do |word|
-        # TODO: check whether the solution is correct words like E-mail, ympyrä-aluevaltaus and such should not be removed
+        # TODO: check correctness for words like E-mail, ympyrä-aluevaltaus and such
         # don't write if there is non-alpha chars contained in the word
         if word.index(/[^[:alnum:]]/).nil?
           file.puts word 
-          # puts "Line: #{words_written += 1} #{word.colorize(:green)}"
+          puts "Line: #{words_written += 1} #{word.colorize(:green)}"
         else
           puts "#non-alpha: #{word}"
         end
@@ -88,10 +90,17 @@ class Translate
       # once again sort and remove duplicates
       all.uniq.sort.each do |word|
         file.puts word
-        # puts "Line: #{(counter += 1).to_s.colorize(:green)} #{word.colorize(:green)}"
+        puts "Line: #{(counter += 1).to_s.colorize(:green)} #{word.colorize(:green)}"
       end
     end
     
     puts "File #{output_file} written"
+  end
+
+  def format_seconds total_seconds
+    minutes = (total_seconds / 60) % 60
+    seconds = total_seconds % 60
+
+    "%02d:%02d".colorize(:green) % [minutes.to_i, seconds.to_i]
   end
 end
